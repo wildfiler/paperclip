@@ -29,7 +29,7 @@ module Paperclip
 
       def exists?(style_name = default_style)
         if original_filename
-          true
+          remote_exists? style_name
         else
           false
         end
@@ -48,7 +48,7 @@ module Paperclip
 
       def flush_deletes #:nodoc:
         @queued_for_delete.each do |path|
-
+          delete path
         end
         @queued_for_delete = []
       end
@@ -66,7 +66,7 @@ module Paperclip
         request 'delete', 'filename' => file
       end
 
-      def exist? file
+      def remote_exists? file
         request 'exist', 'filename' => file
       end
 
