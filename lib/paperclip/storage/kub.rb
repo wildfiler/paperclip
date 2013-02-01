@@ -23,8 +23,14 @@ module Paperclip
     #   added benefit of using the storage directories default umask on those that do.
     module Kub
       def self.extended base
-        require 'httpclient'
-        @client = HTTPClient.new
+#        require 'httpclient'
+        base.instance_eval do
+          @options[:path] = @options[:path].gsub(/:url/, @options[:url]).gsub(/^:rails_root\/public\/system/, '').gsub(%r{^/}, "")
+          @options[:url]  = ":kub_path_url"
+        end
+        Paperclip.interpolates(:kub_path_url) do |attachment, style|
+          "http://dev.kubgames.com.ua/s3/s/#{attachment.path(style).gsub(%r{^/}, "")}"
+        end unless Paperclip::Interpolations.respond_to? :kub_path_url
       end
 
       def exists?(style_name = default_style)
@@ -37,7 +43,7 @@ module Paperclip
 
       def flush_writes #:nodoc:
         @queued_for_write.each do |style_name, file|
-          put style_name, file
+          put path(style_name), file
           file.rewind
         end
 
@@ -47,8 +53,8 @@ module Paperclip
       end
 
       def flush_deletes #:nodoc:
-        @queued_for_delete.each do |path|
-          delete path
+        @queued_for_delete.each do |file|
+          delete path(file)
         end
         @queued_for_delete = []
       end
@@ -59,7 +65,7 @@ module Paperclip
       private
 
       def put style, file
-        request 'put', 'filename' => style, 'upload' => file
+        request 'put', 'filename' => style, 'upload' => File.new(file.path)
       end
 
       def delete file
@@ -70,7 +76,9 @@ module Paperclip
         request 'exist', 'filename' => file
       end
 
-      def request type, *options
+      def request type, *args
+        @client = @client || HTTPClient.new
+        options = args.extract_options!
         @client.post 'http://dev.kubgames.com.ua/s3/storage.php', { 'request' => type }.merge(options)
       end
     end
